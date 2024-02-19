@@ -50,6 +50,21 @@ CRFBinderVisitor >> bindFastModel: fastModel fromFamixMethodEntity: aFamixMethod
 		recordedAs: 'Bind ' , aFamixMethodEntity mooseName printString
 ]
 
+{ #category : #visitor }
+CRFBinderVisitor >> compareSourceFamixEntityNameWithFastEntityName: aFASTJavaMethodName [
+
+	| famixEntityName |
+	famixEntityName := (sourceFamixEntity isConstructor and: [ 
+		                    sourceFamixEntity parentType isClass and: [ 
+			                    sourceFamixEntity parentType isAnonymousClass ] ])
+		                   ifTrue: [ "this method is the constructor of an anonymous class, so the name needs to be parsed" 
+			                   self sourceFamixEntityNameWithoutAnonymousPrefix ]
+		                   ifFalse: [ "general case, no parsing to do" 
+		                   sourceFamixEntity name ].
+
+	^ aFASTJavaMethodName = famixEntityName
+]
+
 { #category : #'private - action' }
 CRFBinderVisitor >> determineAttributeWithName: aVariableName from: aFASTEntity [
 
@@ -157,6 +172,16 @@ CRFBinderVisitor >> sourceFamixEntity: anObject [
 	sourceFamixEntity := anObject
 ]
 
+{ #category : #visitor }
+CRFBinderVisitor >> sourceFamixEntityNameWithoutAnonymousPrefix [ 
+
+	| nameString |
+	nameString := self sourceFamixEntity name.
+	
+	"string format is '_Anonymous(ClassName)', so we remove the 11 first characters, and the final one"
+	^ nameString copyFrom: 12 to: nameString size - 1
+]
+
 { #category : #accessing }
 CRFBinderVisitor >> sourceFamixEntityStartPo [
 	^ self sourceFamixEntity sourceAnchor startPos
@@ -259,7 +284,7 @@ CRFBinderVisitor >> visitFASTJavaInterfaceDeclaration: aFASTJavaInterfaceDeclara
 { #category : #visitor }
 CRFBinderVisitor >> visitFASTJavaMethodEntity: aFASTJavaMethodEntity [
 
-	(aFASTJavaMethodEntity parentNode isNil and: [ aFASTJavaMethodEntity name = self sourceFamixEntity name ])
+	(aFASTJavaMethodEntity parentNode isNil and: [ self compareSourceFamixEntityNameWithFastEntityName: aFASTJavaMethodEntity name ])
 		ifTrue: [ "The current node is the root of the analysis" self sourceFamixEntity fast: aFASTJavaMethodEntity ]
 		ifFalse: [ "The method is declared inside the root, so we need to use the sourceAnchor to be sure of the binding"
 			((self sourceFamixEntity allToScope: FamixTMethod)
